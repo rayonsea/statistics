@@ -1,0 +1,163 @@
+---
+title: "Dragon Ball Battles"
+format: html
+editor: visual
+---
+
+## Power Levels in Dragon Ball
+
+In the Dragon Ball universe, characters are often associated with a power level. The power levels are used as a numerical way to show and compare a character's overall combat ability. Intuitively, characters with higher power level tend to win. However that's not always the case, upsets can happen when weaker characters win by luck, by trickery or simply the opponent forfeiting. So based on the results of the battles, I want to see if there are any conclusions can be drawn about the power levels.
+
+Fans of Dragon Ball have documented all the battles, and separately all the power levels that have been referenced in the manga, anime or movies. With these resources, I have managed to compile data for 25 battles where both fighters level were known. For instance, Goku has a level of 260 when he defeated Drum whose level was 280.
+
+There are limitations with the data. Power levels often change over the course of a battle. Sometimes power level were only estimated. Sometimes battle might not be fully resolved. Sometimes the power level in the same battle came from different sources, e.g. from manga, from the encyclopedia, etc. One example of a battle with all these issues is Zarbon vs Vegeta on the planet Namek.
+
+Data used in this analysis is sourced from <https://www.pojo.com/dragonball/allfightsdb.shtml> and <https://dragonball.fandom.com/wiki/List_of_Power_Levels>
+
+## Progression
+
+```{r}
+#| echo: false
+#| warning: false
+# setup
+library(tidyverse)
+library(ggthemes)
+data <- read_csv('battles.csv')
+data_power <- data %>%
+  pivot_longer(
+    cols = c(rating_0, rating_1),
+    values_to = "rating"
+  )
+```
+Using a simple linear regression, the power levels are fitted to a log(log y) scale
+```{r}
+#| echo: false
+fit_power <- lm(log(log(data_power$rating)) ~ data_power$`Battle number`, data=data_power)
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+fitted_data <- tibble(xs=fit_power$model$`data_power$\`Battle number\``,
+                      ys=exp(exp(fitted(fit_power))))
+
+ggplot(data_power, aes(x=`Battle number`, y=rating)) + 
+         geom_point() + scale_y_log10() +
+  labs(x = "Num of Battles", y="Power Levels") +
+  theme_solarized(base_size=14,)  +
+ annotate("text", x=83, y= 1e6, label="Dragon Ball") +
+ annotate("text", x=105, y= 1e6, label="Dragon Ball Z") +
+ annotate("segment", x=95, xend=95, y=1e3, yend=1e7, colour="black") +
+ annotate("segment", x=83, xend=93, y=3e5, yend=3e5, colour="black",
+          arrow=arrow(angle=20, length=unit(5, "mm"), ends="first")) +
+ annotate("segment", x=97, xend=105, y=3e5, yend=3e5, colour="black",
+          arrow=arrow(angle=20, length=unit(5, "mm"),  ends="last")) +
+  annotate("curve", x=74, xend=80, y=300, yend=1e4, curvature=-0.2,
+           arrow=arrow(angle=10, length=unit(3, "mm"), ends="first")) +
+  annotate("text", x=83, y=2e4, label="Goku vs Tien Shinhan") +
+    annotate("curve", x=115, xend=125, y=5e7, yend=1.4e8, curvature=-0.2,
+           arrow=arrow(angle=10, length=unit(3, "mm"), ends="last")) +
+  annotate("text", x=115, y=3.5e7, label="Goku vs Freiza") +
+  geom_line(data=fitted_data, aes(x=xs, y=ys), colour="blue")
+
+```
+
+The plot suggests power levels increase in a super-exponential rate. The progression to power levels follow approximately $e^{e^{0.0225x}}$. However Goku and Freiza made another significant jump in their combat abilities. Without further power level data in the Dragon Ball timeline, it is not useful to extrapolate into later Dragon Ball series. It is safe to assume the number get so large, it is no longer meaningful to represent characters strength with a numerical values. It is likely the reason why power level was no longer mentioned in the series after freiza was defeated.
+
+## Am I going to win?
+
+Out of the 25 battles where data are available, there are 6 upsets when the character with a lower power level won. So it is possible to win with a lower level, but what are the chances? 
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+data <- data %>% mutate(winner_rating = ifelse(winner==0, rating_0, rating_1))
+data <- data %>% mutate(loser_rating = ifelse(winner==0, rating_1, rating_0))
+data <- data %>% mutate(percent_diff = ifelse(winner==0, (rating_0-rating_1) / rating_0 * 100, (rating_1-rating_0) / rating_1 * 100))
+data <- data %>% mutate(stronger_won_bool = ifelse(percent_diff>=0, TRUE, FALSE))
+data <- data %>% mutate(stronger_won = ifelse(stronger_won_bool, 1, 0))
+data <- data %>% mutate(percent_diff_abs = abs(percent_diff))
+                        
+ggplot(data=data, aes(x=percent_diff_abs, fill=stronger_won_bool)) +
+  geom_histogram(position="stack", binwidth=10, show.legend=FALSE) +
+  labs(title = "Power Level Difference", x = "Power Level Difference %", y="Count") +
+  annotate("text", x=40, y=5, label="Red bars indicate battles lost by higher power level") +
+  theme_solarized(base_size=14,) + 
+theme(plot.margin=margin(3,5,3,3,unit="mm"))
+```
+
+The blue bar means the stronger character won as expected. The red portion of the bar means the loser of the battle has a higher power level. About a quarter of the battles were won by the character with a lower power. The most notable battle was when Ginyu beat Goku by swapping body with Goku, when Goku had 50% higher power level than Ginyu.
+
+Now, fitting the data with a simple binomial logistic regression, three data points were removed where the two characters have the same power level. When power levels are the same, it is reasonable to assume the chance of winning is 50/50, hence it is assumed that the intercept for the regression to be 0.5.
+
+The rate parameter for the logistic function is 0.0344. This fitted model has a p-value of 0.025, it fitted the data surprisingly well with just 22 data points. The prediction of this model, the blue line, is plotted in the below graph. It suggested that even when the opposition have a power level 50% higher than myself, I only have 15% chance of winning. Am I going to chance it? Maybe not, maybe it depends on whether my side have the dragon ball.
+```{r}
+#| echo: false
+#| warning: false
+data_filtered <- data %>% filter(rating_0!=rating_1  ) %>% arrange(percent_diff_abs)
+model <- glm(data_filtered$stronger_won ~ data_filtered$percent_diff_abs - 1 , data=data_filtered,
+             family=binomial(link="logit")) 
+predictor <- data.frame(percent_diff_abs = seq(0,1,length.out=length(data_filtered$stronger_won)))
+calc_prob <- 1 / (1 + exp(predictor$percent_diff_abs*100 * -model$coefficients)) 
+
+fitted_power <- tibble(xs=predictor$percent_diff_abs*100,
+                      ys=calc_prob*100)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| cache: true
+library(rstan)
+rstan_options(auto_write = TRUE)
+rstan_options(threads_per_chain = 1)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: stan-model-compile
+#| cache: true
+stan_data = list(win=data_filtered$stronger_won, percent_diff=data_filtered$percent_diff_abs, N=nrow(data_filtered))
+stan_fit = stan(file='dragonball.stan', data=stan_data, refresh=0)
+stan_summary <- summary(stan_fit)
+stan_beta <- stan_summary$summary["beta", ]
+ 
+```
+
+```{r}
+#| echo: false
+#| warning: false
+library(tidybayes)
+
+stan_predict <- stan_fit %>%
+  spread_draws(win_prediction[i]) %>%
+  # group_by(i) %>%
+  summarise(
+    mean_prob = mean(win_prediction)*100,
+    lower_prob = quantile(win_prediction, 0.16)*100,
+    upper_prob = quantile(win_prediction, 0.84)*100,
+    .groups = 'drop'
+  ) # %>%
+  #bind_cols(summary(stan_fit)$summary$win_predictor)
+
+ggplot() +
+  geom_smooth(data=fitted_power, aes(x=xs, y=ys, color="Logistic Regression"), se=FALSE) +
+  geom_line(data=stan_predict, aes(x=(i-1)*10, y=mean_prob, color="Bayesian Inference") ) +
+  geom_ribbon(data=stan_predict, aes(x=(i-1)*10, ymin=lower_prob, ymax=upper_prob ), alpha=0.1) +
+  labs(title = "Will I Win?", x = "Power Level Difference %", y="Winning Probability %") +
+  scale_color_manual(name="",
+                     breaks=c("Logistic Regression", "Bayesian Inference"),
+                     values=c("Logistic Regression"="blue", "Bayesian Inference"="gray")) +
+  theme_solarized(base_size=14) + 
+  theme(legend.position=c(0.6,0.2), legend.title=element_blank())
+
+```
+Given the low p-value for such few data points, it would be interesting to use Bayesian inference to model the data. The Stan software is used for this task. The result is in grey,  Bayesian inference also give us the probability distribution of the rate parameter. The grey area is within 1 standard deviation from the mean. There is quite a bit of uncertainty, as expected from a small sample size. However the mean value for the rate parameter, 0.0395, fit closely with the logistic regression model. In conclusion, if you are a dragon ball character, it would be wise not to get into a fight if you are under power compare to your opponent without some tricks your sleeves.
+
+The code for this analysis can be found on <https://github.com/rayonsea/statistics>.
+

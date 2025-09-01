@@ -1,0 +1,26 @@
+Battle number,Person 0,rating_0,Person 1,rating_1,winner
+74,Goku,180,Tien Shinhan,180,1
+80,Goku,260,Tanbarin,340,0
+81,Goku,260,King Piccolo,260,1
+84,Tien Shinhan,180,Drum,280,1
+85,Goku,260,Drum,280,0
+86,Goku,260,King Piccolo,260,0
+92,Goku,910,Chi-chi,130,0
+99,Radditz,1500,Piccolo,1480,1
+101,Tien Shinhan,1830,Saibamen,1200,0
+102,Yamaha,1480,Saibamen,1200,1
+103,Krillin,1770,Saibamen,1200,0
+104,Piccolo,3500,Saibamen,1200,0
+105,Tien Shinhan,1830,Nappa,4000,1
+106,Piccolo,3500,Nappa,4000,1
+107,Nappa,4000,Goku,8000,1
+108,Vegeta,18000,Goku,21000,1
+111,Zarbon,23000,Namikian,3000,0
+113,Dodoria,22000,Namikian,3000,0
+114,Vegeta,24000,Dodoria,22000,0
+115,Zarbon,23000,Vegeta,24000,0
+116,Zarbon,23000,Vegeta,24000,1
+121,Goku,180000,Ginyu,120000,1
+122,Frieza,530000,Nail,42000,0
+125,Gohan,200000,Frieza,1000000,1
+126,Goku,1.5E+08,Frieza,1.2E+08,0
